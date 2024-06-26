@@ -43,36 +43,9 @@ TASKS = {
 }
 
 
-# Updated sample data generation
-def generate_sample_data():
-    agents = [
-        Agent(1, "Agent 1", ['fire_certification', 'fighting_diploma'], 40),
-        Agent(2, "Agent 2", ['fire_certification'], 40),
-        Agent(3, "Agent 3", ['fighting_diploma'], 40),
-        Agent(4, "Agent 4", [], 40),
-        Agent(5, "Agent 5", [], 32)
-    ]
+# Sample data generation (keep as is)
 
-    clients = [
-        Client(1, "Client 1", {'Monday': ['firecheck'], 'Wednesday': ['night_security']}, 'A'),
-        Client(2, "Client 2", {'Tuesday': ['fighting'], 'Thursday': ['security_camera']}, 'B'),
-        Client(3, "Client 3", {'Monday': ['night_security'], 'Friday': ['security_camera']}, 'C'),
-        Client(4, "Client 4", {'Wednesday': ['firecheck'], 'Thursday': ['night_security']}, 'A'),
-        Client(5, "Client 5", {'Tuesday': ['security_camera'], 'Friday': ['fighting']}, 'B')
-    ]
-
-    return agents, clients
-
-
-# Helper function to calculate travel time
-def calculate_travel_time(zone1, zone2):
-    if zone1 == 'HQ' or zone2 == 'HQ':
-        return timedelta(minutes=30)
-    elif zone1 == zone2:
-        return timedelta(minutes=30)
-    else:
-        return timedelta(hours=1)
-
+# Helper function to calculate travel time (keep as is)
 
 # Improved scheduling algorithm
 def create_schedule(agents, clients):
@@ -81,6 +54,9 @@ def create_schedule(agents, clients):
     night_shift_start = datetime.strptime("21:00", "%H:%M")
 
     for day in days:
+        for agent in agents:
+            agent.scheduled_hours = 0  # Reset daily hours
+
         for client in clients:
             if day in client.required_interventions:
                 for intervention in client.required_interventions[day]:
@@ -90,7 +66,7 @@ def create_schedule(agents, clients):
                     available_agents = [
                         a for a in agents
                         if (task.required_skill in a.skills or task.required_skill is None) and
-                           a.scheduled_hours + task.duration <= a.hours_per_week
+                           a.scheduled_hours + task.duration <= 8  # 8-hour workday limit
                     ]
 
                     if available_agents:
@@ -98,7 +74,7 @@ def create_schedule(agents, clients):
                         travel_time = calculate_travel_time(agent.current_location,
                                                             'HQ' if task.location == 'HQ' else client.zone)
 
-                        start_time = shift_start + travel_time
+                        start_time = shift_start + timedelta(hours=agent.scheduled_hours)
                         end_time = start_time + timedelta(hours=task.duration)
 
                         agent.schedule[day].append({
@@ -115,23 +91,11 @@ def create_schedule(agents, clients):
     return agents
 
 
-# Create visual calendar
-def create_visual_calendar(agents):
-    data = []
-    for agent in agents:
-        for day, tasks in agent.schedule.items():
-            for task in tasks:
-                data.append(dict(Task=agent.name, Start=task['start'], Finish=task['end'],
-                                 Resource=f"{task['client']} - {task['task']} ({task['zone']})"))
-
-    fig = ff.create_gantt(data, index_col='Resource', show_colorbar=True, group_tasks=True)
-    fig.update_layout(title='Agent Schedules', xaxis_title='Time', yaxis_title='Agent')
-    return fig
-
+# Create visual calendar (keep as is)
 
 # Streamlit app
 def main():
-    st.title("Comprehensive Security Company Scheduler")
+    st.title("Security Company Scheduler (8-Hour Workdays)")
 
     agents, clients = generate_sample_data()
 
@@ -154,22 +118,32 @@ def main():
         for agent in scheduled_agents:
             st.subheader(f"{agent.name}")
             schedule_data = []
+            total_hours = 0
             for day, tasks in agent.schedule.items():
+                daily_hours = 0
                 for task in tasks:
+                    duration = (task['end'] - task['start']).total_seconds() / 3600
                     schedule_data.append([
                         day,
                         task['client'],
                         task['task'],
                         task['zone'],
                         task['start'].strftime("%H:%M"),
-                        task['end'].strftime("%H:%M")
+                        task['end'].strftime("%H:%M"),
+                        f"{duration:.2f}"
                     ])
+                    daily_hours += duration
+                total_hours += daily_hours
+                schedule_data.append([day, "Daily Total", "", "", "", "", f"{daily_hours:.2f}"])
+            schedule_data.append(["Weekly Total", "", "", "", "", "", f"{total_hours:.2f}"])
             schedule_df = pd.DataFrame(schedule_data,
-                                       columns=["Day", "Client", "Task", "Zone", "Start Time", "End Time"])
+                                       columns=["Day", "Client", "Task", "Zone", "Start Time", "End Time", "Hours"])
             st.table(schedule_df)
 
         st.header("Agent Workload Summary")
-        workload_data = [[a.name, round(a.scheduled_hours, 2)] for a in scheduled_agents]
+        workload_data = [[a.name, sum((task['end'] - task['start']).total_seconds() / 3600
+                                      for tasks in a.schedule.values() for task in tasks)]
+                         for a in scheduled_agents]
         workload_df = pd.DataFrame(workload_data, columns=["Agent", "Scheduled Hours (including travel)"])
         st.table(workload_df)
 
@@ -183,7 +157,7 @@ def main():
         st.write(f"Unassigned tasks: {unassigned_tasks}")
 
         total_available_hours = sum(a.hours_per_week for a in agents)
-        total_scheduled_hours = sum(a.scheduled_hours for a in scheduled_agents)
+        total_scheduled_hours = sum(workload_data[i][1] for i in range(len(workload_data)))
         utilization_rate = (total_scheduled_hours / total_available_hours) * 100
         st.write(f"Agent Utilization Rate: {utilization_rate:.2f}%")
 
