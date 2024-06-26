@@ -2,8 +2,43 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
+# Define shift types
+SHIFTS = {
+    'Day1': {'start': '06:00', 'end': '14:00'},
+    'Day2': {'start': '09:00', 'end': '17:00'},
+    'Night1': {'start': '18:00', 'end': '02:00'},
+    'Night2': {'start': '22:00', 'end': '06:00'}
+}
 
-# (Keep existing SHIFTS, Agent, Client, and TASKS definitions)
+
+# Data models
+class Agent:
+    def __init__(self, id, name, skills, hours_per_week, shift_type):
+        self.id = id
+        self.name = name
+        self.skills = skills
+        self.hours_per_week = hours_per_week
+        self.shift_type = shift_type
+        self.scheduled_hours = 0
+        self.schedule = {day: [] for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']}
+
+
+class Client:
+    def __init__(self, id, name, required_interventions, zone):
+        self.id = id
+        self.name = name
+        self.required_interventions = required_interventions
+        self.zone = zone
+
+
+# Define tasks
+TASKS = {
+    'firecheck': {'duration': 2, 'required_skill': 'fire_certification', 'shift': 'day'},
+    'fighting': {'duration': 4, 'required_skill': 'fighting_diploma', 'shift': 'night'},
+    'security_camera': {'duration': 2, 'required_skill': None, 'shift': 'any'},
+    'night_security': {'duration': 4, 'required_skill': None, 'shift': 'night'}
+}
+
 
 def generate_sample_data():
     agents = [
@@ -99,7 +134,60 @@ def create_schedule(agents, clients):
     return agents
 
 
-# (Keep existing main function)
+def main():
+    st.title("Enhanced Security Company Scheduler")
+
+    agents, clients = generate_sample_data()
+
+    st.header("Agent Information")
+    agent_data = [[a.name, ", ".join(a.skills), a.hours_per_week, a.shift_type] for a in agents]
+    agent_df = pd.DataFrame(agent_data, columns=["Agent", "Skills", "Hours per Week", "Shift Type"])
+    st.table(agent_df)
+
+    st.header("Client Requirements")
+    for client in clients:
+        st.subheader(f"{client.name} (Zone {client.zone})")
+        client_data = [[day, ", ".join(tasks)] for day, tasks in client.required_interventions.items()]
+        client_df = pd.DataFrame(client_data, columns=["Day", "Required Interventions"])
+        st.table(client_df)
+
+    if st.button("Generate Schedule"):
+        scheduled_agents = create_schedule(agents, clients)
+
+        st.header("Agent Schedules")
+        for agent in scheduled_agents:
+            st.subheader(f"{agent.name} ({agent.shift_type})")
+            schedule_data = []
+            for day, tasks in agent.schedule.items():
+                for task in tasks:
+                    schedule_data.append([
+                        day,
+                        task['client'],
+                        task['task'],
+                        task['start'],
+                        task['end']
+                    ])
+            schedule_df = pd.DataFrame(schedule_data, columns=["Day", "Client", "Task", "Start Time", "End Time"])
+            st.table(schedule_df)
+
+        st.header("Agent Workload Summary")
+        workload_data = [[a.name, a.scheduled_hours, a.shift_type] for a in scheduled_agents]
+        workload_df = pd.DataFrame(workload_data, columns=["Agent", "Scheduled Hours", "Shift Type"])
+        st.table(workload_df)
+
+        # Calculate and display analytics
+        total_tasks = sum(len(tasks) for c in clients for tasks in c.required_interventions.values())
+        assigned_tasks = sum(len(tasks) for a in scheduled_agents for tasks in a.schedule.values())
+        st.header("Schedule Analytics")
+        st.write(f"Total tasks: {total_tasks}")
+        st.write(f"Assigned tasks: {assigned_tasks}")
+        st.write(f"Unassigned tasks: {total_tasks - assigned_tasks}")
+
+        total_available_hours = sum(a.hours_per_week for a in agents)
+        total_scheduled_hours = sum(a.scheduled_hours for a in scheduled_agents)
+        utilization_rate = (total_scheduled_hours / total_available_hours) * 100
+        st.write(f"Agent Utilization Rate: {utilization_rate:.2f}%")
+
 
 if __name__ == "__main__":
     main()
