@@ -51,46 +51,46 @@ def generate_sample_data():
 
     clients = [
         Client(1, "Client 1", {
-            'Monday': ['firecheck', 'security_camera'],
-            'Tuesday': ['security_camera', 'night_security'],
-            'Wednesday': ['firecheck', 'security_camera'],
-            'Thursday': ['security_camera', 'night_security'],
-            'Friday': ['firecheck', 'security_camera']
+            'Monday': ['firecheck', 'security_camera', 'night_security', 'fighting'],
+            'Tuesday': ['security_camera', 'night_security', 'firecheck', 'fighting'],
+            'Wednesday': ['firecheck', 'security_camera', 'night_security', 'fighting'],
+            'Thursday': ['security_camera', 'night_security', 'firecheck', 'fighting'],
+            'Friday': ['firecheck', 'security_camera', 'night_security', 'fighting']
         }, 'A'),
         Client(2, "Client 2", {
-            'Monday': ['night_security', 'fighting'],
-            'Tuesday': ['security_camera', 'firecheck'],
-            'Wednesday': ['night_security', 'fighting'],
-            'Thursday': ['security_camera', 'firecheck'],
-            'Friday': ['night_security', 'fighting']
+            'Monday': ['night_security', 'fighting', 'security_camera', 'firecheck'],
+            'Tuesday': ['security_camera', 'firecheck', 'night_security', 'fighting'],
+            'Wednesday': ['night_security', 'fighting', 'security_camera', 'firecheck'],
+            'Thursday': ['security_camera', 'firecheck', 'night_security', 'fighting'],
+            'Friday': ['night_security', 'fighting', 'security_camera', 'firecheck']
         }, 'B'),
         Client(3, "Client 3", {
-            'Monday': ['security_camera', 'firecheck'],
-            'Tuesday': ['night_security', 'fighting'],
-            'Wednesday': ['security_camera', 'firecheck'],
-            'Thursday': ['night_security', 'fighting'],
-            'Friday': ['security_camera', 'firecheck']
+            'Monday': ['security_camera', 'firecheck', 'night_security', 'fighting'],
+            'Tuesday': ['night_security', 'fighting', 'security_camera', 'firecheck'],
+            'Wednesday': ['security_camera', 'firecheck', 'night_security', 'fighting'],
+            'Thursday': ['night_security', 'fighting', 'security_camera', 'firecheck'],
+            'Friday': ['security_camera', 'firecheck', 'night_security', 'fighting']
         }, 'C'),
         Client(4, "Client 4", {
-            'Monday': ['night_security', 'security_camera'],
-            'Tuesday': ['firecheck', 'security_camera'],
-            'Wednesday': ['night_security', 'fighting'],
-            'Thursday': ['firecheck', 'security_camera'],
-            'Friday': ['night_security', 'fighting']
+            'Monday': ['night_security', 'security_camera', 'firecheck', 'fighting'],
+            'Tuesday': ['firecheck', 'security_camera', 'night_security', 'fighting'],
+            'Wednesday': ['night_security', 'fighting', 'firecheck', 'security_camera'],
+            'Thursday': ['firecheck', 'security_camera', 'night_security', 'fighting'],
+            'Friday': ['night_security', 'fighting', 'firecheck', 'security_camera']
         }, 'A'),
         Client(5, "Client 5", {
-            'Monday': ['firecheck', 'fighting'],
-            'Tuesday': ['security_camera', 'night_security'],
-            'Wednesday': ['firecheck', 'security_camera'],
-            'Thursday': ['fighting', 'night_security'],
-            'Friday': ['security_camera', 'firecheck']
+            'Monday': ['firecheck', 'fighting', 'security_camera', 'night_security'],
+            'Tuesday': ['security_camera', 'night_security', 'firecheck', 'fighting'],
+            'Wednesday': ['firecheck', 'security_camera', 'night_security', 'fighting'],
+            'Thursday': ['fighting', 'night_security', 'security_camera', 'firecheck'],
+            'Friday': ['security_camera', 'firecheck', 'night_security', 'fighting']
         }, 'B'),
         Client(6, "Client 6", {
-            'Monday': ['security_camera', 'night_security'],
-            'Tuesday': ['fighting', 'firecheck'],
-            'Wednesday': ['security_camera', 'night_security'],
-            'Thursday': ['fighting', 'firecheck'],
-            'Friday': ['security_camera', 'night_security']
+            'Monday': ['security_camera', 'night_security', 'firecheck', 'fighting'],
+            'Tuesday': ['fighting', 'firecheck', 'security_camera', 'night_security'],
+            'Wednesday': ['security_camera', 'night_security', 'firecheck', 'fighting'],
+            'Thursday': ['fighting', 'firecheck', 'security_camera', 'night_security'],
+            'Friday': ['security_camera', 'night_security', 'firecheck', 'fighting']
         }, 'C')
     ]
 
