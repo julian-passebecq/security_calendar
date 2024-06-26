@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import random
 from datetime import datetime, timedelta, date
-import plotly.figure_factory as ff
 import plotly.express as px
 
 
