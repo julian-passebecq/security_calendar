@@ -2,60 +2,18 @@ import streamlit as st
 import pandas as pd
 import random
 from datetime import datetime, timedelta, date
+import plotly.figure_factory as ff
+import plotly.express as px
 
 
-# Data models
-class Agent:
-    def __init__(self, id, name, qualifications):
-        self.id = id
-        self.name = name
-        self.qualifications = qualifications
+# (Previous code for Agent, Client, Shift classes, and generate_sample_data function remains the same)
 
-
-class Client:
-    def __init__(self, id, name, requirements):
-        self.id = id
-        self.name = name
-        self.requirements = requirements
-
-
-class Shift:
-    def __init__(self, start_time, end_time, client, agent=None):
-        self.start_time = start_time
-        self.end_time = end_time
-        self.client = client
-        self.agent = agent
-
-
-# Sample data generation
-def generate_sample_data():
-    agents = [
-        Agent(1, "John Doe", ["general", "firefighting"]),
-        Agent(2, "Jane Smith", ["general", "driving"]),
-        Agent(3, "Mike Johnson", ["general"]),
-        Agent(4, "Emily Brown", ["general", "firefighting"]),
-        Agent(5, "Chris Wilson", ["general", "driving"])
-    ]
-
-    clients = [
-        Client(1, "Office Building A", ["general"]),
-        Client(2, "Nightclub B", ["general", "firefighting"]),
-        Client(3, "Residential Complex C", ["general", "driving"]),
-        Client(4, "Factory D", ["general", "firefighting"]),
-        Client(5, "Mall E", ["general"])
-    ]
-
-    return agents, clients
-
-
-# Simple scheduling algorithm
 def create_schedule(agents, clients, start_date, num_days):
     schedule = []
     current_date = start_date
 
     for _ in range(num_days):
         for client in clients:
-            # Convert date to datetime
             shift_start = datetime.combine(current_date, datetime.min.time()).replace(hour=20, minute=0)
             shift_end = (shift_start + timedelta(hours=10)).replace(hour=6, minute=0)
 
@@ -71,7 +29,23 @@ def create_schedule(agents, clients, start_date, num_days):
     return schedule
 
 
-# Streamlit app
+def create_gantt_chart(schedule):
+    df = pd.DataFrame([
+        dict(Task=f"{shift.client.name} - {shift.agent.name}",
+             Start=shift.start_time,
+             Finish=shift.end_time,
+             Agent=shift.agent.name)
+        for shift in schedule
+    ])
+
+    fig = px.timeline(df, x_start="Start", x_end="Finish", y="Task", color="Agent",
+                      title="Security Company Schedule")
+    fig.update_yaxes(categoryorder="total ascending")
+    fig.update_layout(height=600)
+
+    return fig
+
+
 def main():
     st.title("Security Company Scheduler POC")
 
@@ -107,6 +81,10 @@ def main():
 
         schedule_df = pd.DataFrame(schedule_data)
         st.table(schedule_df)
+
+        st.header("Visual Timetable")
+        fig = create_gantt_chart(schedule)
+        st.plotly_chart(fig, use_container_width=True)
 
 
 if __name__ == "__main__":
