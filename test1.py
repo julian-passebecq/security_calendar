@@ -1,3 +1,4 @@
+import streamlit as st
 import random
 from typing import List, Tuple, Dict
 
@@ -46,10 +47,13 @@ class TimetableGeneticAlgorithm:
         return random.choice(suitable_agents) if suitable_agents else random.choice(self.agents)
 
     def fitness(self, timetable: Dict) -> float:
-        # Implement fitness function based on constraints
-        # Return a score, higher is better
         score = 0
-        # Add logic to evaluate timetable against all constraints
+        for agent_id, schedule in timetable.items():
+            agent = next(a for a in self.agents if a.id == agent_id)
+            total_hours = sum(intervention.duration for day in schedule for intervention in day)
+            if total_hours <= agent.hours_per_week:
+                score += 1
+            # Add more constraint checks here
         return score
 
     def crossover(self, parent1: Dict, parent2: Dict) -> Dict:
@@ -63,13 +67,16 @@ class TimetableGeneticAlgorithm:
         return child
 
     def mutate(self, timetable: Dict) -> Dict:
-        # Implement mutation logic
-        # For example, swap interventions between agents or days
+        if random.random() < 0.1:  # 10% chance of mutation
+            agent1, agent2 = random.sample(list(timetable.keys()), 2)
+            day = random.randint(0, DAYS_IN_WEEK - 1)
+            timetable[agent1][day], timetable[agent2][day] = timetable[agent2][day], timetable[agent1][day]
         return timetable
 
     def select_parents(self, population: List[Dict]) -> Tuple[Dict, Dict]:
-        # Implement parent selection (e.g., tournament selection)
-        return random.choice(population), random.choice(population)
+        tournament_size = 5
+        tournament = random.sample(population, tournament_size)
+        return max(tournament, key=self.fitness), max(tournament, key=self.fitness)
 
     def evolve(self):
         population = self.generate_initial_population()
@@ -82,24 +89,53 @@ class TimetableGeneticAlgorithm:
                 new_population.append(child)
             population = new_population
             best_timetable = max(population, key=self.fitness)
-            print(f"Generation {generation + 1}: Best fitness = {self.fitness(best_timetable)}")
-        return best_timetable
+            yield generation, best_timetable, self.fitness(best_timetable)
 
-# Example usage
-agents = [
-    Agent(1, 40, ['fire']),
-    Agent(2, 40, ['fighting']),
-    Agent(3, 40, ['maintenance']),
-    Agent(4, 40, ['fire', 'maintenance']),
-    Agent(5, 32, [])
-]
+def main():
+    st.title("Security Agent Timetabling with Genetic Algorithm")
 
-interventions = [
-    Intervention(1, 'fire', 'A', 'day_early', 4),
-    Intervention(2, 'fighting', 'B', 'night', 6),
-    Intervention(3, 'camera', 'C', 'day_late', 3),
-    Intervention(4, 'maintenance', 'A', 'day_early', 5)
-]
+    # Sidebar for input parameters
+    st.sidebar.header("Parameters")
+    population_size = st.sidebar.slider("Population Size", 10, 100, 50)
+    generations = st.sidebar.slider("Number of Generations", 10, 500, 100)
 
-ga = TimetableGeneticAlgorithm(agents, interventions, population_size=50, generations=100)
-best_timetable = ga.evolve()
+    # Create agents and interventions
+    agents = [
+        Agent(1, 40, ['fire']),
+        Agent(2, 40, ['fighting']),
+        Agent(3, 40, ['maintenance']),
+        Agent(4, 40, ['fire', 'maintenance']),
+        Agent(5, 32, [])
+    ]
+
+    interventions = [
+        Intervention(1, 'fire', 'A', 'day_early', 4),
+        Intervention(2, 'fighting', 'B', 'night', 6),
+        Intervention(3, 'camera', 'C', 'day_late', 3),
+        Intervention(4, 'maintenance', 'A', 'day_early', 5)
+    ]
+
+    # Initialize genetic algorithm
+    ga = TimetableGeneticAlgorithm(agents, interventions, population_size, generations)
+
+    # Run evolution
+    if st.button("Generate Timetable"):
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        best_fitness_plot = st.line_chart()
+
+        for generation, best_timetable, fitness in ga.evolve():
+            progress = (generation + 1) / generations
+            progress_bar.progress(progress)
+            status_text.text(f"Generation {generation + 1}/{generations}: Best fitness = {fitness}")
+            best_fitness_plot.add_rows([fitness])
+
+        st.success("Timetable generation completed!")
+        st.subheader("Best Timetable")
+        for agent_id, schedule in best_timetable.items():
+            st.write(f"Agent {agent_id}:")
+            for day, interventions in enumerate(schedule):
+                st.write(f"  Day {day + 1}: {', '.join(str(i.client_id) for i in interventions)}")
+
+if __name__ == "__main__":
+    main()
