@@ -6,7 +6,7 @@ import pandas as pd
 import plotly.express as px
 
 # Constants
-DAYS_IN_WEEK = 7
+DAYS_IN_WEEK = 5  # Assuming a 5-day work week
 HOURS_IN_SHIFT = 8
 ZONES = ['A', 'B', 'C', 'HQ']
 SKILLS = {'camera': 1, 'maintenance': 2, 'fighting': 5, 'fire': 2}
@@ -19,7 +19,6 @@ class Agent:
         self.hours_per_week = hours_per_week
         self.skills = skills
         self.schedule = [[] for _ in range(DAYS_IN_WEEK)]
-        self.night_shifts = 0
 
 
 class Intervention:
@@ -50,13 +49,17 @@ class TimetableGeneticAlgorithm:
         population = []
         for _ in range(self.population_size):
             timetable = {agent.id: [] for agent in self.agents}
-            for client_id, interventions in self.client_demands.items():
-                for intervention in interventions:
-                    agent = self.select_random_suitable_agent(intervention)
-                    day = random.randint(0, DAYS_IN_WEEK - 1)
-                    start_time = self.get_random_start_time(intervention.shift_type)
-                    timeslot = Timeslot(day, start_time, intervention)
-                    timetable[agent.id].append(timeslot)
+            all_interventions = [intervention for interventions in self.client_demands.values() for intervention in
+                                 interventions]
+            random.shuffle(all_interventions)
+
+            for intervention in all_interventions:
+                agent = self.select_random_suitable_agent(intervention)
+                day = random.randint(0, DAYS_IN_WEEK - 1)
+                start_time = self.get_random_start_time(intervention.shift_type)
+                timeslot = Timeslot(day, start_time, intervention)
+                timetable[agent.id].append(timeslot)
+
             population.append(timetable)
         return population
 
@@ -77,30 +80,39 @@ class TimetableGeneticAlgorithm:
         for agent_id, timeslots in timetable.items():
             agent = next(a for a in self.agents if a.id == agent_id)
 
-            # Check total hours
-            total_hours = sum(slot.intervention.duration for slot in timeslots)
-            if total_hours <= agent.hours_per_week:
-                score += 1
+            daily_hours = [0] * DAYS_IN_WEEK
+            for slot in timeslots:
+                daily_hours[slot.day] += slot.intervention.duration
+
+            # Check if daily hours are close to HOURS_IN_SHIFT
+            for hours in daily_hours:
+                if abs(hours - HOURS_IN_SHIFT) <= 1:  # Allow 1 hour flexibility
+                    score += 2
+                else:
+                    score -= abs(hours - HOURS_IN_SHIFT)
+
+            # Check total weekly hours
+            total_hours = sum(daily_hours)
+            if abs(total_hours - agent.hours_per_week) <= 2:  # Allow 2 hours flexibility per week
+                score += 5
             else:
-                score -= (total_hours - agent.hours_per_week) / 2
+                score -= abs(total_hours - agent.hours_per_week)
 
             # Check skills match
             if all(slot.intervention.skill_required in agent.skills for slot in timeslots):
                 score += 2
 
             # Check for overlapping timeslots and proper breaks
-            timeslots.sort(key=lambda x: (x.day, x.start_time))
-            for i in range(len(timeslots) - 1):
-                if timeslots[i].day == timeslots[i + 1].day:
-                    end_time = timeslots[i].start_time + timedelta(hours=timeslots[i].intervention.duration)
-                    if end_time > timeslots[i + 1].start_time:
-                        score -= 1
+            for day in range(DAYS_IN_WEEK):
+                day_slots = sorted([slot for slot in timeslots if slot.day == day], key=lambda x: x.start_time)
+                for i in range(len(day_slots) - 1):
+                    end_time = day_slots[i].start_time + timedelta(hours=day_slots[i].intervention.duration)
+                    if end_time > day_slots[i + 1].start_time:
+                        score -= 2
                     else:
-                        break_time = (timeslots[i + 1].start_time - end_time).total_seconds() / 3600
-                        if break_time < 0.5:  # Less than 30 minutes break
-                            score -= 1
-                        elif break_time > 1 and break_time < 8:  # Break between 1 and 8 hours
-                            score -= 0.5
+                        break_time = (day_slots[i + 1].start_time - end_time).total_seconds() / 3600
+                        if 0.5 <= break_time <= 1:  # Ideal break time
+                            score += 1
 
             # Check night shift constraints
             night_shifts = sum(1 for slot in timeslots if slot.intervention.shift_type == 'night')
@@ -188,12 +200,18 @@ def main():
         Agent(5, 32, ['camera'])
     ]
 
+    # Increased number of interventions to ensure full workdays
     client_demands = {
-        1: [Intervention(1, 'fire', 'A', 'day_early'), Intervention(1, 'camera', 'A', 'day_late')],
-        2: [Intervention(2, 'fighting', 'B', 'night'), Intervention(2, 'maintenance', 'B', 'day_early')],
-        3: [Intervention(3, 'camera', 'C', 'day_late'), Intervention(3, 'fire', 'C', 'day_early')],
-        4: [Intervention(4, 'maintenance', 'A', 'day_early'), Intervention(4, 'fighting', 'A', 'night')],
-        5: [Intervention(5, 'fire', 'B', 'day_late'), Intervention(5, 'camera', 'B', 'day_early')],
+        1: [Intervention(1, 'fire', 'A', 'day_early'), Intervention(1, 'camera', 'A', 'day_late'),
+            Intervention(1, 'fire', 'A', 'day_early'), Intervention(1, 'camera', 'A', 'day_late')],
+        2: [Intervention(2, 'fighting', 'B', 'night'), Intervention(2, 'maintenance', 'B', 'day_early'),
+            Intervention(2, 'fighting', 'B', 'night'), Intervention(2, 'maintenance', 'B', 'day_early')],
+        3: [Intervention(3, 'camera', 'C', 'day_late'), Intervention(3, 'fire', 'C', 'day_early'),
+            Intervention(3, 'camera', 'C', 'day_late'), Intervention(3, 'fire', 'C', 'day_early')],
+        4: [Intervention(4, 'maintenance', 'A', 'day_early'), Intervention(4, 'fighting', 'A', 'night'),
+            Intervention(4, 'maintenance', 'A', 'day_early'), Intervention(4, 'fighting', 'A', 'night')],
+        5: [Intervention(5, 'fire', 'B', 'day_late'), Intervention(5, 'camera', 'B', 'day_early'),
+            Intervention(5, 'fire', 'B', 'day_late'), Intervention(5, 'camera', 'B', 'day_early')],
     }
 
     ga = TimetableGeneticAlgorithm(agents, client_demands, population_size, generations)
@@ -226,11 +244,17 @@ def main():
         for agent_id, timeslots in best_timetable.items():
             agent = next(a for a in agents if a.id == agent_id)
             st.write(f"Agent {agent_id} (Skills: {', '.join(agent.skills)}):")
+            daily_hours = [0] * DAYS_IN_WEEK
             for timeslot in sorted(timeslots, key=lambda x: (x.day, x.start_time)):
                 st.write(f"  Day {timeslot.day + 1}, {timeslot.start_time.strftime('%H:%M')}: "
                          f"Client {timeslot.intervention.client_id} "
                          f"({timeslot.intervention.skill_required}, {timeslot.intervention.duration}h) "
                          f"- Zone {timeslot.intervention.zone}")
+                daily_hours[timeslot.day] += timeslot.intervention.duration
+
+            st.write("  Daily hours:", " ".join(f"Day {i + 1}: {hours}h" for i, hours in enumerate(daily_hours)))
+            st.write(f"  Total weekly hours: {sum(daily_hours)}h")
+            st.write("---")
 
 
 if __name__ == "__main__":
