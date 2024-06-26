@@ -2,10 +2,32 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import random
 from datetime import datetime, timedelta, date, time
 
 
-# Data models (keep the existing Agent, Client, and Shift classes)
+# Data models
+class Agent:
+    def __init__(self, id, name, qualifications):
+        self.id = id
+        self.name = name
+        self.qualifications = qualifications
+
+
+class Client:
+    def __init__(self, id, name, requirements):
+        self.id = id
+        self.name = name
+        self.requirements = requirements
+
+
+class Shift:
+    def __init__(self, start_time, end_time, client, agent=None):
+        self.start_time = start_time
+        self.end_time = end_time
+        self.client = client
+        self.agent = agent
+
 
 # Modified sample data generation
 def generate_sample_data():
