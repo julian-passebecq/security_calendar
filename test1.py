@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 
 # Data models
@@ -55,8 +55,9 @@ def create_schedule(agents, clients, start_date, num_days):
 
     for _ in range(num_days):
         for client in clients:
-            shift_start = current_date.replace(hour=20, minute=0)  # 8 PM
-            shift_end = (current_date + timedelta(days=1)).replace(hour=6, minute=0)  # 6 AM next day
+            # Convert date to datetime
+            shift_start = datetime.combine(current_date, datetime.min.time()).replace(hour=20, minute=0)
+            shift_end = (shift_start + timedelta(hours=10)).replace(hour=6, minute=0)
 
             available_agents = [agent for agent in agents if
                                 set(client.requirements).issubset(set(agent.qualifications))]
@@ -87,7 +88,7 @@ def main():
     st.table(client_df)
 
     st.header("Generate Schedule")
-    start_date = st.date_input("Start Date", datetime.now())
+    start_date = st.date_input("Start Date", date.today())
     num_days = st.number_input("Number of Days", min_value=1, max_value=30, value=7)
 
     if st.button("Generate Schedule"):
