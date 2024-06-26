@@ -4,7 +4,35 @@ from datetime import datetime, timedelta
 import random
 
 
-# Enhanced data models (keep the existing Agent, Client, and Shift classes)
+# Data models
+class Agent:
+    def __init__(self, id, name, skills, hours_per_week):
+        self.id = id
+        self.name = name
+        self.skills = skills
+        self.hours_per_week = hours_per_week
+        self.scheduled_hours = 0
+        self.current_location = None
+
+
+class Client:
+    def __init__(self, id, name, required_interventions, zone):
+        self.id = id
+        self.name = name
+        self.required_interventions = required_interventions
+        self.zone = zone
+
+
+class Shift:
+    def __init__(self, client, day, shift_type, start_time, intervention_type):
+        self.client = client
+        self.day = day
+        self.shift_type = shift_type
+        self.start_time = start_time
+        self.intervention_type = intervention_type
+        self.agent = None
+        self.breaks = []
+
 
 # Updated sample data generation
 def generate_sample_data():
@@ -25,6 +53,14 @@ def generate_sample_data():
     ]
 
     return agents, clients
+
+
+# Helper function to calculate travel time
+def calculate_travel_time(zone1, zone2):
+    if zone1 == zone2:
+        return timedelta(minutes=30)
+    else:
+        return timedelta(hours=1)
 
 
 # Improved scheduling algorithm
@@ -52,13 +88,26 @@ def create_schedule(agents, clients):
                     if available_agents:
                         agent = available_agents[0]  # Select the agent with the least scheduled hours
 
-                        # Calculate travel time (keep existing travel time calculation)
+                        # Calculate travel time
+                        if agent.current_location:
+                            travel_time = calculate_travel_time(agent.current_location, client.zone)
+                            shift.start_time += travel_time
 
                         shift.agent = agent
                         agent.scheduled_hours += 8  # 8-hour shift
                         agent.current_location = client.zone
 
-                        # Add breaks (keep existing break calculation)
+                        # Add breaks
+                        shift_end = shift.start_time + timedelta(hours=8)
+                        break_times = [
+                            shift.start_time + timedelta(hours=2),
+                            shift.start_time + timedelta(hours=4),  # Lunch/Dinner break
+                            shift.start_time + timedelta(hours=6)
+                        ]
+                        shift.breaks = [
+                            (bt, bt + timedelta(minutes=15 if i != 1 else 45))
+                            for i, bt in enumerate(break_times)
+                        ]
 
                     schedule.append(shift)
 
@@ -88,8 +137,7 @@ def main():
         schedule_data = []
         for s in schedule:
             shift_end = s.start_time + timedelta(hours=8)
-            break_info = ", ".join([f"{b[0].strftime('%H:%M')}-{b[1].strftime('%H:%M')}" for b in s.breaks]) if hasattr(
-                s, 'breaks') else "N/A"
+            break_info = ", ".join([f"{b[0].strftime('%H:%M')}-{b[1].strftime('%H:%M')}" for b in s.breaks])
             schedule_data.append([
                 s.day,
                 s.shift_type,
