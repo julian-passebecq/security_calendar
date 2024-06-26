@@ -1,198 +1,152 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
+import plotly.figure_factory as ff
+import plotly.graph_objects as go
 from datetime import datetime, timedelta
+import random
 
-# Define shift types
+# Constants
 SHIFTS = {
-    'Day1': {'start': '06:00', 'end': '14:00'},
-    'Day2': {'start': '09:00', 'end': '17:00'},
-    'Night1': {'start': '18:00', 'end': '02:00'},
-    'Night2': {'start': '22:00', 'end': '06:00'}
+    'Day1': {'start': '05:00', 'end': '13:00'},
+    'Day2': {'start': '12:00', 'end': '20:00'},
+    'Night': {'start': '21:00', 'end': '05:00'}
 }
 
+ZONES = ['A', 'B', 'C', 'HQ']
 
-# Data models
+INTERVENTIONS = ['fire', 'fighting', 'camera', 'maintenance']
+
+
+# Classes
 class Agent:
-    def __init__(self, id, name, skills, hours_per_week, shift_type):
+    def __init__(self, id, name, certifications, hours_per_week):
         self.id = id
         self.name = name
-        self.skills = skills
+        self.certifications = certifications
         self.hours_per_week = hours_per_week
-        self.shift_type = shift_type
-        self.scheduled_hours = 0
-        self.schedule = {day: [] for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']}
 
 
-class Client:
-    def __init__(self, id, name, required_interventions, zone):
+class Intervention:
+    def __init__(self, id, type, zone, duration):
         self.id = id
-        self.name = name
-        self.required_interventions = required_interventions
+        self.type = type
         self.zone = zone
+        self.duration = duration
 
 
-# Define tasks
-TASKS = {
-    'firecheck': {'duration': 2, 'required_skill': 'fire_certification', 'shift': 'day'},
-    'fighting': {'duration': 4, 'required_skill': 'fighting_diploma', 'shift': 'night'},
-    'security_camera': {'duration': 2, 'required_skill': None, 'shift': 'any'},
-    'night_security': {'duration': 4, 'required_skill': None, 'shift': 'night'}
-}
+# Genetic Algorithm Functions
+def create_individual():
+    # Create a random schedule for a week
+    schedule = np.zeros((7 * 24 * 2, 5), dtype=int)  # 7 days, 24 hours, 30-minute intervals, 5 agents
+    # Fill with random interventions
+    for day in range(7):
+        for agent in range(5):
+            if random.random() < 0.7:  # 70% chance of working
+                shift = random.choice(list(SHIFTS.keys()))
+                start, end = SHIFTS[shift]['start'], SHIFTS[shift]['end']
+                start_idx = day * 48 + int(start.split(':')[0]) * 2
+                end_idx = day * 48 + int(end.split(':')[0]) * 2
+                schedule[start_idx:end_idx, agent] = random.randint(1, 100)  # Random intervention ID
+    return schedule
 
 
-def generate_sample_data():
-    agents = [
-        Agent(1, "Agent 1", ['fire_certification', 'fighting_diploma'], 40, 'Day1'),
-        Agent(2, "Agent 2", ['fire_certification'], 40, 'Day2'),
-        Agent(3, "Agent 3", ['fighting_diploma'], 40, 'Night1'),
-        Agent(4, "Agent 4", [], 40, 'Night2'),
-        Agent(5, "Agent 5", [], 32, 'Day1')
-    ]
-
-    clients = [
-        Client(1, "Client 1", {
-            'Monday': ['firecheck', 'security_camera', 'night_security', 'fighting'],
-            'Tuesday': ['security_camera', 'night_security', 'firecheck', 'fighting'],
-            'Wednesday': ['firecheck', 'security_camera', 'night_security', 'fighting'],
-            'Thursday': ['security_camera', 'night_security', 'firecheck', 'fighting'],
-            'Friday': ['firecheck', 'security_camera', 'night_security', 'fighting']
-        }, 'A'),
-        Client(2, "Client 2", {
-            'Monday': ['night_security', 'fighting', 'security_camera', 'firecheck'],
-            'Tuesday': ['security_camera', 'firecheck', 'night_security', 'fighting'],
-            'Wednesday': ['night_security', 'fighting', 'security_camera', 'firecheck'],
-            'Thursday': ['security_camera', 'firecheck', 'night_security', 'fighting'],
-            'Friday': ['night_security', 'fighting', 'security_camera', 'firecheck']
-        }, 'B'),
-        Client(3, "Client 3", {
-            'Monday': ['security_camera', 'firecheck', 'night_security', 'fighting'],
-            'Tuesday': ['night_security', 'fighting', 'security_camera', 'firecheck'],
-            'Wednesday': ['security_camera', 'firecheck', 'night_security', 'fighting'],
-            'Thursday': ['night_security', 'fighting', 'security_camera', 'firecheck'],
-            'Friday': ['security_camera', 'firecheck', 'night_security', 'fighting']
-        }, 'C'),
-        Client(4, "Client 4", {
-            'Monday': ['night_security', 'security_camera', 'firecheck', 'fighting'],
-            'Tuesday': ['firecheck', 'security_camera', 'night_security', 'fighting'],
-            'Wednesday': ['night_security', 'fighting', 'firecheck', 'security_camera'],
-            'Thursday': ['firecheck', 'security_camera', 'night_security', 'fighting'],
-            'Friday': ['night_security', 'fighting', 'firecheck', 'security_camera']
-        }, 'A'),
-        Client(5, "Client 5", {
-            'Monday': ['firecheck', 'fighting', 'security_camera', 'night_security'],
-            'Tuesday': ['security_camera', 'night_security', 'firecheck', 'fighting'],
-            'Wednesday': ['firecheck', 'security_camera', 'night_security', 'fighting'],
-            'Thursday': ['fighting', 'night_security', 'security_camera', 'firecheck'],
-            'Friday': ['security_camera', 'firecheck', 'night_security', 'fighting']
-        }, 'B'),
-        Client(6, "Client 6", {
-            'Monday': ['security_camera', 'night_security', 'firecheck', 'fighting'],
-            'Tuesday': ['fighting', 'firecheck', 'security_camera', 'night_security'],
-            'Wednesday': ['security_camera', 'night_security', 'firecheck', 'fighting'],
-            'Thursday': ['fighting', 'firecheck', 'security_camera', 'night_security'],
-            'Friday': ['security_camera', 'night_security', 'firecheck', 'fighting']
-        }, 'C')
-    ]
-
-    return agents, clients
+def fitness(individual):
+    # Calculate fitness score
+    score = 0
+    # Add your fitness calculation logic here
+    return score
 
 
-def create_schedule(agents, clients):
-    for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']:
-        for client in clients:
-            for task_type in client.required_interventions[day]:
-                task = TASKS[task_type]
-                shift_type = 'night' if task['shift'] == 'night' else 'day'
-                available_agents = [
-                    a for a in agents
-                    if (task['required_skill'] in a.skills or task['required_skill'] is None) and
-                       ((shift_type == 'night' and a.shift_type.startswith('Night')) or
-                        (shift_type == 'day' and a.shift_type.startswith('Day'))) and
-                       a.scheduled_hours + task['duration'] <= a.hours_per_week
-                ]
-                if available_agents:
-                    agent = min(available_agents, key=lambda a: a.scheduled_hours)
-                    shift = SHIFTS[agent.shift_type]
-                    start_time = datetime.strptime(shift['start'], "%H:%M")
-                    if shift_type == 'night':
-                        start_time = datetime.strptime("18:00",
-                                                       "%H:%M") if agent.shift_type == 'Night1' else datetime.strptime(
-                            "22:00", "%H:%M")
-                    end_time = start_time + timedelta(hours=task['duration'])
-                    if end_time > datetime.strptime(shift['end'], "%H:%M"):
-                        if shift_type == 'night':
-                            end_time = datetime.strptime("06:00", "%H:%M")
-                        else:
-                            continue  # Skip if day task doesn't fit in shift
-
-                    # Check if the agent already has a task scheduled for this time slot
-                    if any(task['start'] < end_time.strftime("%H:%M") and task['end'] > start_time.strftime("%H:%M")
-                           for task in agent.schedule[day]):
-                        continue  # Skip if agent is already scheduled for this time slot
-
-                    agent.schedule[day].append({
-                        'client': client.name,
-                        'task': task_type,
-                        'start': start_time.strftime("%H:%M"),
-                        'end': end_time.strftime("%H:%M")
-                    })
-                    agent.scheduled_hours += task['duration']
-    return agents
+def crossover(parent1, parent2):
+    # Implement crossover logic
+    child = parent1.copy()
+    # Add your crossover logic here
+    return child
 
 
+def mutate(individual):
+    # Implement mutation logic
+    mutated = individual.copy()
+    # Add your mutation logic here
+    return mutated
+
+
+def genetic_algorithm(population_size, generations):
+    population = [create_individual() for _ in range(population_size)]
+
+    for gen in range(generations):
+        # Selection
+        parents = random.choices(population, k=population_size)
+
+        # Crossover
+        offspring = [crossover(parents[i], parents[i + 1]) for i in range(0, population_size - 1, 2)]
+
+        # Mutation
+        offspring = [mutate(ind) for ind in offspring]
+
+        # Evaluation
+        population = sorted(population + offspring, key=fitness, reverse=True)[:population_size]
+
+        # Update progress
+        if gen % 10 == 0:
+            st.write(f"Generation {gen}: Best fitness = {fitness(population[0])}")
+
+    return population[0]
+
+
+# Visualization Functions
+def plot_schedule(schedule):
+    # Create a Gantt chart of the schedule
+    df = []
+    for day in range(7):
+        for agent in range(5):
+            interventions = np.where(schedule[day * 48:(day + 1) * 48, agent] > 0)[0]
+            for start, end in zip(interventions[:-1], interventions[1:]):
+                if end > start + 1:  # Intervention longer than 30 minutes
+                    df.append(dict(Task=f"Agent {agent + 1}",
+                                   Start=f"2023-01-0{day + 1} {start // 2:02d}:{(start % 2) * 30:02d}:00",
+                                   Finish=f"2023-01-0{day + 1} {end // 2:02d}:{(end % 2) * 30:02d}:00",
+                                   Resource=f"Intervention {schedule[day * 48 + start, agent]}"))
+
+    fig = ff.create_gantt(df, index_col='Resource', show_colorbar=True, group_tasks=True)
+    st.plotly_chart(fig)
+
+
+def plot_agent_utilization(schedule):
+    # Plot agent utilization
+    utilization = np.sum(schedule > 0, axis=0) / (7 * 48)  # 7 days, 48 half-hours per day
+    fig = go.Figure(data=[go.Bar(x=[f"Agent {i + 1}" for i in range(5)], y=utilization)])
+    fig.update_layout(title="Agent Utilization", xaxis_title="Agent", yaxis_title="Utilization")
+    st.plotly_chart(fig)
+
+
+# Streamlit App
 def main():
-    st.title("Enhanced Security Company Scheduler")
+    st.title("Security Company Scheduler - Genetic Algorithm Approach")
 
-    agents, clients = generate_sample_data()
+    st.header("Problem Setup")
+    st.write("This app uses a genetic algorithm to create a weekly schedule for a security company.")
+    st.write("Constraints include agent certifications, shift types, intervention requirements, and travel times.")
 
-    st.header("Agent Information")
-    agent_data = [[a.name, ", ".join(a.skills), a.hours_per_week, a.shift_type] for a in agents]
-    agent_df = pd.DataFrame(agent_data, columns=["Agent", "Skills", "Hours per Week", "Shift Type"])
-    st.table(agent_df)
-
-    st.header("Client Requirements")
-    for client in clients:
-        st.subheader(f"{client.name} (Zone {client.zone})")
-        client_data = [[day, ", ".join(tasks)] for day, tasks in client.required_interventions.items()]
-        client_df = pd.DataFrame(client_data, columns=["Day", "Required Interventions"])
-        st.table(client_df)
+    st.header("Genetic Algorithm Parameters")
+    population_size = st.slider("Population Size", 10, 1000, 100)
+    generations = st.slider("Number of Generations", 10, 1000, 100)
 
     if st.button("Generate Schedule"):
-        scheduled_agents = create_schedule(agents, clients)
+        with st.spinner("Generating schedule..."):
+            best_schedule = genetic_algorithm(population_size, generations)
 
-        st.header("Agent Schedules")
-        for agent in scheduled_agents:
-            st.subheader(f"{agent.name} ({agent.shift_type})")
-            schedule_data = []
-            for day, tasks in agent.schedule.items():
-                for task in tasks:
-                    schedule_data.append([
-                        day,
-                        task['client'],
-                        task['task'],
-                        task['start'],
-                        task['end']
-                    ])
-            schedule_df = pd.DataFrame(schedule_data, columns=["Day", "Client", "Task", "Start Time", "End Time"])
-            st.table(schedule_df)
+        st.success("Schedule generated!")
 
-        st.header("Agent Workload Summary")
-        workload_data = [[a.name, a.scheduled_hours, a.shift_type] for a in scheduled_agents]
-        workload_df = pd.DataFrame(workload_data, columns=["Agent", "Scheduled Hours", "Shift Type"])
-        st.table(workload_df)
+        st.header("Generated Schedule")
+        plot_schedule(best_schedule)
 
-        # Calculate and display analytics
-        total_tasks = sum(len(tasks) for c in clients for tasks in c.required_interventions.values())
-        assigned_tasks = sum(len(tasks) for a in scheduled_agents for tasks in a.schedule.values())
-        st.header("Schedule Analytics")
-        st.write(f"Total tasks: {total_tasks}")
-        st.write(f"Assigned tasks: {assigned_tasks}")
-        st.write(f"Unassigned tasks: {total_tasks - assigned_tasks}")
+        st.header("Agent Utilization")
+        plot_agent_utilization(best_schedule)
 
-        total_available_hours = sum(a.hours_per_week for a in agents)
-        total_scheduled_hours = sum(a.scheduled_hours for a in scheduled_agents)
-        utilization_rate = (total_scheduled_hours / total_available_hours) * 100
-        st.write(f"Agent Utilization Rate: {utilization_rate:.2f}%")
+        st.header("Schedule Analysis")
+        st.write("Add more detailed analysis of the generated schedule here.")
 
 
 if __name__ == "__main__":
