@@ -5,9 +5,45 @@ from datetime import datetime, timedelta
 import random
 
 
-# (Keep the existing Agent, Client, Task, and TASKS definitions)
+# Data models
+class Agent:
+    def __init__(self, id, name, skills, hours_per_week):
+        self.id = id
+        self.name = name
+        self.skills = skills
+        self.hours_per_week = hours_per_week
+        self.scheduled_hours = 0
+        self.current_location = 'HQ'
+        self.schedule = {day: [] for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']}
 
-# Sample data generation
+
+class Client:
+    def __init__(self, id, name, required_interventions, zone):
+        self.id = id
+        self.name = name
+        self.required_interventions = required_interventions
+        self.zone = zone
+
+
+class Task:
+    def __init__(self, type, duration, location, required_skill, shift):
+        self.type = type
+        self.duration = duration
+        self.location = location
+        self.required_skill = required_skill
+        self.shift = shift
+
+
+# Define tasks
+TASKS = {
+    'firecheck': Task('firecheck', 2, 'onsite', 'fire_certification', 'day'),
+    'fighting': Task('fighting', 5, 'onsite', 'fighting_diploma', 'night'),
+    'security_camera': Task('security_camera', 1, 'HQ', None, 'any'),
+    'night_security': Task('night_security', 1, 'onsite', None, 'night')
+}
+
+
+# Updated sample data generation
 def generate_sample_data():
     agents = [
         Agent(1, "Agent 1", ['fire_certification', 'fighting_diploma'], 40),
@@ -17,13 +53,23 @@ def generate_sample_data():
         Agent(5, "Agent 5", [], 32)
     ]
 
-    clients = [
-        Client(1, "Client 1", {'Monday': ['firecheck'], 'Wednesday': ['night_security']}, 'A'),
-        Client(2, "Client 2", {'Tuesday': ['fighting'], 'Thursday': ['security_camera']}, 'B'),
-        Client(3, "Client 3", {'Monday': ['night_security'], 'Friday': ['security_camera']}, 'C'),
-        Client(4, "Client 4", {'Wednesday': ['firecheck'], 'Thursday': ['night_security']}, 'A'),
-        Client(5, "Client 5", {'Tuesday': ['security_camera'], 'Friday': ['fighting']}, 'B')
-    ]
+    zones = ['A', 'B', 'C']
+    intervention_types = list(TASKS.keys())
+    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+
+    clients = []
+    for i in range(1, 11):
+        required_interventions = {}
+        for day in days:
+            if random.random() > 0.5:  # 50% chance of having an intervention on each day
+                required_interventions[day] = random.sample(intervention_types, random.randint(1, 2))
+
+        clients.append(Client(
+            i,
+            f"Client {i}",
+            required_interventions,
+            random.choice(zones)
+        ))
 
     return agents, clients
 
@@ -61,56 +107,7 @@ def main():
     if st.button("Generate Schedule"):
         scheduled_agents = create_schedule(agents, clients)
 
-        st.header("Agent Schedules")
-        for agent in scheduled_agents:
-            st.subheader(f"{agent.name}")
-            schedule_data = []
-            total_hours = 0
-            for day, tasks in agent.schedule.items():
-                daily_hours = 0
-                for task in tasks:
-                    duration = (task['end'] - task['start']).total_seconds() / 3600
-                    schedule_data.append([
-                        day,
-                        task['client'],
-                        task['task'],
-                        task['zone'],
-                        task['start'].strftime("%H:%M"),
-                        task['end'].strftime("%H:%M"),
-                        f"{duration:.2f}"
-                    ])
-                    daily_hours += duration
-                total_hours += daily_hours
-                schedule_data.append([day, "Daily Total", "", "", "", "", f"{daily_hours:.2f}"])
-            schedule_data.append(["Weekly Total", "", "", "", "", "", f"{total_hours:.2f}"])
-            schedule_df = pd.DataFrame(schedule_data,
-                                       columns=["Day", "Client", "Task", "Zone", "Start Time", "End Time", "Hours"])
-            st.table(schedule_df)
-
-        st.header("Agent Workload Summary")
-        workload_data = [[a.name, sum((task['end'] - task['start']).total_seconds() / 3600
-                                      for tasks in a.schedule.values() for task in tasks)]
-                         for a in scheduled_agents]
-        workload_df = pd.DataFrame(workload_data, columns=["Agent", "Scheduled Hours (including travel)"])
-        st.table(workload_df)
-
-        st.header("Schedule Analytics")
-        total_tasks = sum(len(tasks) for c in clients for tasks in c.required_interventions.values())
-        assigned_tasks = sum(len(tasks) for a in scheduled_agents for tasks in a.schedule.values())
-        unassigned_tasks = total_tasks - assigned_tasks
-
-        st.write(f"Total tasks: {total_tasks}")
-        st.write(f"Assigned tasks: {assigned_tasks}")
-        st.write(f"Unassigned tasks: {unassigned_tasks}")
-
-        total_available_hours = sum(a.hours_per_week for a in agents)
-        total_scheduled_hours = sum(workload_data[i][1] for i in range(len(workload_data)))
-        utilization_rate = (total_scheduled_hours / total_available_hours) * 100
-        st.write(f"Agent Utilization Rate: {utilization_rate:.2f}%")
-
-        st.header("Visual Calendar")
-        fig = create_visual_calendar(scheduled_agents)
-        st.plotly_chart(fig)
+        # (Keep the rest of the main function as is)
 
 
 if __name__ == "__main__":
