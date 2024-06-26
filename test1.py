@@ -5,8 +5,51 @@ from datetime import datetime, timedelta, date
 import plotly.express as px
 
 
-# (Previous code for Agent, Client, Shift classes, and generate_sample_data function remains the same)
+# Data models
+class Agent:
+    def __init__(self, id, name, qualifications):
+        self.id = id
+        self.name = name
+        self.qualifications = qualifications
 
+
+class Client:
+    def __init__(self, id, name, requirements):
+        self.id = id
+        self.name = name
+        self.requirements = requirements
+
+
+class Shift:
+    def __init__(self, start_time, end_time, client, agent=None):
+        self.start_time = start_time
+        self.end_time = end_time
+        self.client = client
+        self.agent = agent
+
+
+# Sample data generation
+def generate_sample_data():
+    agents = [
+        Agent(1, "John Doe", ["general", "firefighting"]),
+        Agent(2, "Jane Smith", ["general", "driving"]),
+        Agent(3, "Mike Johnson", ["general"]),
+        Agent(4, "Emily Brown", ["general", "firefighting"]),
+        Agent(5, "Chris Wilson", ["general", "driving"])
+    ]
+
+    clients = [
+        Client(1, "Office Building A", ["general"]),
+        Client(2, "Nightclub B", ["general", "firefighting"]),
+        Client(3, "Residential Complex C", ["general", "driving"]),
+        Client(4, "Factory D", ["general", "firefighting"]),
+        Client(5, "Mall E", ["general"])
+    ]
+
+    return agents, clients
+
+
+# Scheduling algorithm
 def create_schedule(agents, clients, start_date, num_days):
     schedule = []
     current_date = start_date
@@ -28,6 +71,7 @@ def create_schedule(agents, clients, start_date, num_days):
     return schedule
 
 
+# Create Gantt chart
 def create_gantt_chart(schedule):
     df = pd.DataFrame([
         dict(Task=f"{shift.client.name} - {shift.agent.name}",
@@ -45,6 +89,7 @@ def create_gantt_chart(schedule):
     return fig
 
 
+# Streamlit app
 def main():
     st.title("Security Company Scheduler POC")
 
