@@ -124,6 +124,12 @@ def create_schedule(agents, clients):
                             end_time = datetime.strptime("06:00", "%H:%M")
                         else:
                             continue  # Skip if day task doesn't fit in shift
+
+                    # Check if the agent already has a task scheduled for this time slot
+                    if any(task['start'] < end_time.strftime("%H:%M") and task['end'] > start_time.strftime("%H:%M")
+                           for task in agent.schedule[day]):
+                        continue  # Skip if agent is already scheduled for this time slot
+
                     agent.schedule[day].append({
                         'client': client.name,
                         'task': task_type,
