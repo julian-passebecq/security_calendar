@@ -1,153 +1,105 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.figure_factory as ff
-import plotly.graph_objects as go
-from datetime import datetime, timedelta
 import random
+from typing import List, Tuple, Dict
 
 # Constants
-SHIFTS = {
-    'Day1': {'start': '05:00', 'end': '13:00'},
-    'Day2': {'start': '12:00', 'end': '20:00'},
-    'Night': {'start': '21:00', 'end': '05:00'}
-}
+DAYS_IN_WEEK = 7
+HOURS_IN_SHIFT = 8
+ZONES = ['A', 'B', 'C']
+SKILLS = ['fire', 'fighting', 'camera', 'maintenance']
+SHIFT_TYPES = ['day_early', 'day_late', 'night']
 
-ZONES = ['A', 'B', 'C', 'HQ']
-
-INTERVENTIONS = ['fire', 'fighting', 'camera', 'maintenance']
-
-
-# Classes
 class Agent:
-    def __init__(self, id, name, certifications, hours_per_week):
+    def __init__(self, id: int, hours_per_week: int, skills: List[str]):
         self.id = id
-        self.name = name
-        self.certifications = certifications
         self.hours_per_week = hours_per_week
-
+        self.skills = skills
+        self.schedule = [[] for _ in range(DAYS_IN_WEEK)]
 
 class Intervention:
-    def __init__(self, id, type, zone, duration):
-        self.id = id
-        self.type = type
+    def __init__(self, client_id: int, skill_required: str, zone: str, shift_type: str, duration: int):
+        self.client_id = client_id
+        self.skill_required = skill_required
         self.zone = zone
+        self.shift_type = shift_type
         self.duration = duration
 
+class TimetableGeneticAlgorithm:
+    def __init__(self, agents: List[Agent], interventions: List[Intervention], population_size: int, generations: int):
+        self.agents = agents
+        self.interventions = interventions
+        self.population_size = population_size
+        self.generations = generations
 
-# Genetic Algorithm Functions
-def create_individual():
-    # Create a random schedule for a week
-    schedule = np.zeros((7 * 24 * 2, 5), dtype=int)  # 7 days, 24 hours, 30-minute intervals, 5 agents
-    # Fill with random interventions
-    for day in range(7):
-        for agent in range(5):
-            if random.random() < 0.7:  # 70% chance of working
-                shift = random.choice(list(SHIFTS.keys()))
-                start, end = SHIFTS[shift]['start'], SHIFTS[shift]['end']
-                start_idx = day * 48 + int(start.split(':')[0]) * 2
-                end_idx = day * 48 + int(end.split(':')[0]) * 2
-                schedule[start_idx:end_idx, agent] = random.randint(1, 100)  # Random intervention ID
-    return schedule
+    def generate_initial_population(self) -> List[Dict]:
+        population = []
+        for _ in range(self.population_size):
+            timetable = {agent.id: [[] for _ in range(DAYS_IN_WEEK)] for agent in self.agents}
+            for intervention in self.interventions:
+                agent = self.select_random_suitable_agent(intervention)
+                day = random.randint(0, DAYS_IN_WEEK - 1)
+                timetable[agent.id][day].append(intervention)
+            population.append(timetable)
+        return population
 
+    def select_random_suitable_agent(self, intervention: Intervention) -> Agent:
+        suitable_agents = [agent for agent in self.agents if intervention.skill_required in agent.skills]
+        return random.choice(suitable_agents) if suitable_agents else random.choice(self.agents)
 
-def fitness(individual):
-    # Calculate fitness score
-    score = 0
-    # Add your fitness calculation logic here
-    return score
+    def fitness(self, timetable: Dict) -> float:
+        # Implement fitness function based on constraints
+        # Return a score, higher is better
+        score = 0
+        # Add logic to evaluate timetable against all constraints
+        return score
 
+    def crossover(self, parent1: Dict, parent2: Dict) -> Dict:
+        child = {agent.id: [[] for _ in range(DAYS_IN_WEEK)] for agent in self.agents}
+        for agent_id in child:
+            for day in range(DAYS_IN_WEEK):
+                if random.random() < 0.5:
+                    child[agent_id][day] = parent1[agent_id][day].copy()
+                else:
+                    child[agent_id][day] = parent2[agent_id][day].copy()
+        return child
 
-def crossover(parent1, parent2):
-    # Implement crossover logic
-    child = parent1.copy()
-    # Add your crossover logic here
-    return child
+    def mutate(self, timetable: Dict) -> Dict:
+        # Implement mutation logic
+        # For example, swap interventions between agents or days
+        return timetable
 
+    def select_parents(self, population: List[Dict]) -> Tuple[Dict, Dict]:
+        # Implement parent selection (e.g., tournament selection)
+        return random.choice(population), random.choice(population)
 
-def mutate(individual):
-    # Implement mutation logic
-    mutated = individual.copy()
-    # Add your mutation logic here
-    return mutated
+    def evolve(self):
+        population = self.generate_initial_population()
+        for generation in range(self.generations):
+            new_population = []
+            for _ in range(self.population_size):
+                parent1, parent2 = self.select_parents(population)
+                child = self.crossover(parent1, parent2)
+                child = self.mutate(child)
+                new_population.append(child)
+            population = new_population
+            best_timetable = max(population, key=self.fitness)
+            print(f"Generation {generation + 1}: Best fitness = {self.fitness(best_timetable)}")
+        return best_timetable
 
+# Example usage
+agents = [
+    Agent(1, 40, ['fire']),
+    Agent(2, 40, ['fighting']),
+    Agent(3, 40, ['maintenance']),
+    Agent(4, 40, ['fire', 'maintenance']),
+    Agent(5, 32, [])
+]
 
-def genetic_algorithm(population_size, generations):
-    population = [create_individual() for _ in range(population_size)]
+interventions = [
+    Intervention(1, 'fire', 'A', 'day_early', 4),
+    Intervention(2, 'fighting', 'B', 'night', 6),
+    Intervention(3, 'camera', 'C', 'day_late', 3),
+    Intervention(4, 'maintenance', 'A', 'day_early', 5)
+]
 
-    for gen in range(generations):
-        # Selection
-        parents = random.choices(population, k=population_size)
-
-        # Crossover
-        offspring = [crossover(parents[i], parents[i + 1]) for i in range(0, population_size - 1, 2)]
-
-        # Mutation
-        offspring = [mutate(ind) for ind in offspring]
-
-        # Evaluation
-        population = sorted(population + offspring, key=fitness, reverse=True)[:population_size]
-
-        # Update progress
-        if gen % 10 == 0:
-            st.write(f"Generation {gen}: Best fitness = {fitness(population[0])}")
-
-    return population[0]
-
-
-# Visualization Functions
-def plot_schedule(schedule):
-    # Create a Gantt chart of the schedule
-    df = []
-    for day in range(7):
-        for agent in range(5):
-            interventions = np.where(schedule[day * 48:(day + 1) * 48, agent] > 0)[0]
-            for start, end in zip(interventions[:-1], interventions[1:]):
-                if end > start + 1:  # Intervention longer than 30 minutes
-                    df.append(dict(Task=f"Agent {agent + 1}",
-                                   Start=f"2023-01-0{day + 1} {start // 2:02d}:{(start % 2) * 30:02d}:00",
-                                   Finish=f"2023-01-0{day + 1} {end // 2:02d}:{(end % 2) * 30:02d}:00",
-                                   Resource=f"Intervention {schedule[day * 48 + start, agent]}"))
-
-    fig = ff.create_gantt(df, index_col='Resource', show_colorbar=True, group_tasks=True)
-    st.plotly_chart(fig)
-
-
-def plot_agent_utilization(schedule):
-    # Plot agent utilization
-    utilization = np.sum(schedule > 0, axis=0) / (7 * 48)  # 7 days, 48 half-hours per day
-    fig = go.Figure(data=[go.Bar(x=[f"Agent {i + 1}" for i in range(5)], y=utilization)])
-    fig.update_layout(title="Agent Utilization", xaxis_title="Agent", yaxis_title="Utilization")
-    st.plotly_chart(fig)
-
-
-# Streamlit App
-def main():
-    st.title("Security Company Scheduler - Genetic Algorithm Approach")
-
-    st.header("Problem Setup")
-    st.write("This app uses a genetic algorithm to create a weekly schedule for a security company.")
-    st.write("Constraints include agent certifications, shift types, intervention requirements, and travel times.")
-
-    st.header("Genetic Algorithm Parameters")
-    population_size = st.slider("Population Size", 10, 1000, 100)
-    generations = st.slider("Number of Generations", 10, 1000, 100)
-
-    if st.button("Generate Schedule"):
-        with st.spinner("Generating schedule..."):
-            best_schedule = genetic_algorithm(population_size, generations)
-
-        st.success("Schedule generated!")
-
-        st.header("Generated Schedule")
-        plot_schedule(best_schedule)
-
-        st.header("Agent Utilization")
-        plot_agent_utilization(best_schedule)
-
-        st.header("Schedule Analysis")
-        st.write("Add more detailed analysis of the generated schedule here.")
-
-
-if __name__ == "__main__":
-    main()
+ga = TimetableGeneticAlgorithm(agents, interventions, population_size=50, generations=100)
+best_timetable = ga.evolve()
