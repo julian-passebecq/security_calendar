@@ -5,93 +5,40 @@ from datetime import datetime, timedelta
 import random
 
 
-# Updated data models
-class Agent:
-    def __init__(self, id, name, skills, hours_per_week):
-        self.id = id
-        self.name = name
-        self.skills = skills
-        self.hours_per_week = hours_per_week
-        self.scheduled_hours = 0
-        self.current_location = 'HQ'
-        self.schedule = {day: [] for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']}
+# (Keep the existing Agent, Client, Task, and TASKS definitions)
+
+# Sample data generation
+def generate_sample_data():
+    agents = [
+        Agent(1, "Agent 1", ['fire_certification', 'fighting_diploma'], 40),
+        Agent(2, "Agent 2", ['fire_certification'], 40),
+        Agent(3, "Agent 3", ['fighting_diploma'], 40),
+        Agent(4, "Agent 4", [], 40),
+        Agent(5, "Agent 5", [], 32)
+    ]
+
+    clients = [
+        Client(1, "Client 1", {'Monday': ['firecheck'], 'Wednesday': ['night_security']}, 'A'),
+        Client(2, "Client 2", {'Tuesday': ['fighting'], 'Thursday': ['security_camera']}, 'B'),
+        Client(3, "Client 3", {'Monday': ['night_security'], 'Friday': ['security_camera']}, 'C'),
+        Client(4, "Client 4", {'Wednesday': ['firecheck'], 'Thursday': ['night_security']}, 'A'),
+        Client(5, "Client 5", {'Tuesday': ['security_camera'], 'Friday': ['fighting']}, 'B')
+    ]
+
+    return agents, clients
 
 
-class Client:
-    def __init__(self, id, name, required_interventions, zone):
-        self.id = id
-        self.name = name
-        self.required_interventions = required_interventions
-        self.zone = zone
+# Helper function to calculate travel time
+def calculate_travel_time(zone1, zone2):
+    if zone1 == 'HQ' or zone2 == 'HQ':
+        return timedelta(minutes=30)
+    elif zone1 == zone2:
+        return timedelta(minutes=30)
+    else:
+        return timedelta(hours=1)
 
 
-class Task:
-    def __init__(self, type, duration, location, required_skill, shift):
-        self.type = type
-        self.duration = duration
-        self.location = location
-        self.required_skill = required_skill
-        self.shift = shift
-
-
-# Define tasks
-TASKS = {
-    'firecheck': Task('firecheck', 2, 'onsite', 'fire_certification', 'day'),
-    'fighting': Task('fighting', 5, 'onsite', 'fighting_diploma', 'night'),
-    'security_camera': Task('security_camera', 1, 'HQ', None, 'any'),
-    'night_security': Task('night_security', 1, 'onsite', None, 'night')
-}
-
-
-# Sample data generation (keep as is)
-
-# Helper function to calculate travel time (keep as is)
-
-# Improved scheduling algorithm
-def create_schedule(agents, clients):
-    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-    day_shift_start = datetime.strptime("09:00", "%H:%M")
-    night_shift_start = datetime.strptime("21:00", "%H:%M")
-
-    for day in days:
-        for agent in agents:
-            agent.scheduled_hours = 0  # Reset daily hours
-
-        for client in clients:
-            if day in client.required_interventions:
-                for intervention in client.required_interventions[day]:
-                    task = TASKS[intervention]
-                    shift_start = night_shift_start if task.shift == 'night' else day_shift_start
-
-                    available_agents = [
-                        a for a in agents
-                        if (task.required_skill in a.skills or task.required_skill is None) and
-                           a.scheduled_hours + task.duration <= 8  # 8-hour workday limit
-                    ]
-
-                    if available_agents:
-                        agent = min(available_agents, key=lambda a: a.scheduled_hours)
-                        travel_time = calculate_travel_time(agent.current_location,
-                                                            'HQ' if task.location == 'HQ' else client.zone)
-
-                        start_time = shift_start + timedelta(hours=agent.scheduled_hours)
-                        end_time = start_time + timedelta(hours=task.duration)
-
-                        agent.schedule[day].append({
-                            'client': client.name,
-                            'task': task.type,
-                            'start': start_time,
-                            'end': end_time,
-                            'zone': client.zone if task.location == 'onsite' else 'HQ'
-                        })
-
-                        agent.scheduled_hours += task.duration + travel_time.total_seconds() / 3600
-                        agent.current_location = 'HQ' if task.location == 'HQ' else client.zone
-
-    return agents
-
-
-# Create visual calendar (keep as is)
+# (Keep the existing create_schedule and create_visual_calendar functions)
 
 # Streamlit app
 def main():
